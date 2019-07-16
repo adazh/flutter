@@ -53,28 +53,33 @@ Future<int> run(
     final String systemLocale = await intl_standalone.findSystemLocale();
     intl.Intl.defaultLocale = intl.Intl.verifiedLocale(
       systemLocale, intl.NumberFormat.localeExists,
-      onFailure: (String _) => 'en_US'
+      onFailure: (String _) => 'en_US',
     );
 
-    try {
-      await runner.run(args);
-      await _exit(0);
-    } catch (error, stackTrace) {
-      String getVersion() => flutterVersion ?? FlutterVersion.instance.getVersionString();
-      return await _handleToolError(error, stackTrace, verbose, args, reportCrashes, getVersion);
-    }
-    return 0;
+    String getVersion() => flutterVersion ?? FlutterVersion.instance.getVersionString(redactUnknownBranches: true);
+    return await runZoned<Future<int>>(() async {
+      try {
+        await runner.run(args);
+        return await _exit(0);
+      } catch (error, stackTrace) {
+        return await _handleToolError(
+            error, stackTrace, verbose, args, reportCrashes, getVersion);
+      }
+    }, onError: (Object error, StackTrace stackTrace) async {
+      await _handleToolError(
+          error, stackTrace, verbose, args, reportCrashes, getVersion);
+    });
   }, overrides: overrides);
 }
 
 Future<int> _handleToolError(
-    dynamic error,
-    StackTrace stackTrace,
-    bool verbose,
-    List<String> args,
-    bool reportCrashes,
-    String getFlutterVersion(),
-    ) async {
+  dynamic error,
+  StackTrace stackTrace,
+  bool verbose,
+  List<String> args,
+  bool reportCrashes,
+  String getFlutterVersion(),
+) async {
   if (error is UsageException) {
     printError('${error.message}\n');
     printError("Run 'flutter -h' (or 'flutter <command> -h') for available flutter commands and options.");

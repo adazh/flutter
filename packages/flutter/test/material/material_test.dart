@@ -18,8 +18,10 @@ class NotifyMaterial extends StatelessWidget {
   }
 }
 
-Widget buildMaterial(
-    {double elevation = 0.0, Color shadowColor = const Color(0xFF00FF00)}) {
+Widget buildMaterial({
+  double elevation = 0.0,
+  Color shadowColor = const Color(0xFF00FF00),
+}) {
   return Center(
     child: SizedBox(
       height: 100.0,
@@ -54,6 +56,41 @@ class PaintRecorder extends CustomPainter {
 }
 
 void main() {
+  testWidgets('default Material debugFillProperties', (WidgetTester tester) async {
+    final DiagnosticPropertiesBuilder builder = DiagnosticPropertiesBuilder();
+    const Material().debugFillProperties(builder);
+
+    final List<String> description = builder.properties
+      .where((DiagnosticsNode node) => !node.isFiltered(DiagnosticLevel.info))
+      .map((DiagnosticsNode node) => node.toString())
+      .toList();
+
+    expect(description, <String>['type: canvas']);
+  });
+
+  testWidgets('Material implements debugFillProperties', (WidgetTester tester) async {
+    final DiagnosticPropertiesBuilder builder = DiagnosticPropertiesBuilder();
+    const Material(
+      type: MaterialType.canvas,
+      color: Color(0xFFFFFFFF),
+      textStyle: TextStyle(color: Color(0xff00ff00)),
+      borderRadius: BorderRadiusDirectional.all(Radius.circular(10)),
+    ).debugFillProperties(builder);
+
+    final List<String> description = builder.properties
+      .where((DiagnosticsNode node) => !node.isFiltered(DiagnosticLevel.info))
+      .map((DiagnosticsNode node) => node.toString())
+      .toList();
+
+    expect(description, <String>[
+      'type: canvas',
+      'color: Color(0xffffffff)',
+      'textStyle.inherit: true',
+      'textStyle.color: Color(0xff00ff00)',
+      'borderRadius: BorderRadiusDirectional.circular(10.0)',
+    ]);
+  });
+
   testWidgets('LayoutChangedNotification test', (WidgetTester tester) async {
     await tester.pumpWidget(
       Material(
@@ -310,7 +347,7 @@ void main() {
         Material(
           key: materialKey,
           type: MaterialType.canvas,
-          child: const SizedBox(width: 100.0, height: 100.0)
+          child: const SizedBox(width: 100.0, height: 100.0),
         )
       );
 
@@ -500,7 +537,7 @@ void main() {
             side: BorderSide(
               width: 2.0,
               color: Color(0xFF0000FF),
-            )
+            ),
           ),
         )
       );
@@ -520,7 +557,7 @@ void main() {
             side: BorderSide(
               width: 2.0,
               color: Color(0xFF0000FF),
-            )
+            ),
           ),
         )
       );
@@ -543,5 +580,92 @@ void main() {
       final RenderBox box = tester.renderObject(find.byKey(materialKey));
       expect(box, isNot(paints..circle()));
     });
+
+    testWidgets('border is painted above child by default', (WidgetTester tester) async {
+      final Key painterKey = UniqueKey();
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: RepaintBoundary(
+            key: painterKey,
+            child: Card(
+              child: SizedBox(
+                width: 200,
+                height: 300,
+                child: Material(
+                  clipBehavior: Clip.hardEdge,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    side: const BorderSide(color: Colors.grey, width: 6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: <Widget>[
+                      Container(
+                        color: Colors.green,
+                        height: 150,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+
+      await expectLater(
+        find.byKey(painterKey),
+        matchesGoldenFile(
+          'material.border_paint_above.png',
+          version: null,
+        ),
+        skip: !isLinux,
+      );
+    }, skip: isBrowser);
+
+    testWidgets('border is painted below child when specified', (WidgetTester tester) async {
+      final Key painterKey = UniqueKey();
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: RepaintBoundary(
+            key: painterKey,
+            child: Card(
+              child: SizedBox(
+                width: 200,
+                height: 300,
+                child: Material(
+                  clipBehavior: Clip.hardEdge,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    side: const BorderSide(color: Colors.grey, width: 6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  borderOnForeground: false,
+                  child: Column(
+                    children: <Widget>[
+                      Container(
+                        color: Colors.green,
+                        height: 150,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+
+      await expectLater(
+        find.byKey(painterKey),
+        matchesGoldenFile(
+          'material.border_paint_below.png',
+          version: null,
+        ),
+        skip: !isLinux,
+      );
+    }, skip: isBrowser);
   });
 }

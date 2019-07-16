@@ -11,7 +11,7 @@ import 'package:matcher/matcher.dart';
 
 import '../widgets/semantics_tester.dart';
 
-MaterialApp _appWithAlertDialog(WidgetTester tester, AlertDialog dialog, {ThemeData theme}) {
+MaterialApp _appWithAlertDialog(WidgetTester tester, AlertDialog dialog, { ThemeData theme }) {
   return MaterialApp(
       theme: theme,
       home: Material(
@@ -24,14 +24,14 @@ MaterialApp _appWithAlertDialog(WidgetTester tester, AlertDialog dialog, {ThemeD
                   showDialog<void>(
                     context: context,
                     builder: (BuildContext context) {
-                        return dialog;
+                      return dialog;
                     },
                   );
-                }
-              )
+                },
+              ),
             );
           }
-        )
+        ),
       ),
   );
 }
@@ -60,8 +60,8 @@ void main() {
             onPressed: () {
               didPressOk = true;
             },
-            child: const Text('OK')
-        )
+            child: const Text('OK'),
+        ),
       ],
     );
     await tester.pumpWidget(_appWithAlertDialog(tester, dialog));
@@ -408,7 +408,7 @@ void main() {
     );
     expect(
       tester.getRect(find.byType(Placeholder)),
-      Rect.fromLTRB(10.0 + 40.0, 20.0 + 24.0, 800.0 - (40.0 + 30.0), 600.0 - (24.0 + 40.0)),
+      const Rect.fromLTRB(10.0 + 40.0, 20.0 + 24.0, 800.0 - (40.0 + 30.0), 600.0 - (24.0 + 40.0)),
     );
     await tester.pumpWidget(
       const MediaQuery(
@@ -422,12 +422,12 @@ void main() {
     );
     expect( // no change because this is an animation
       tester.getRect(find.byType(Placeholder)),
-      Rect.fromLTRB(10.0 + 40.0, 20.0 + 24.0, 800.0 - (40.0 + 30.0), 600.0 - (24.0 + 40.0)),
+      const Rect.fromLTRB(10.0 + 40.0, 20.0 + 24.0, 800.0 - (40.0 + 30.0), 600.0 - (24.0 + 40.0)),
     );
     await tester.pump(const Duration(seconds: 1));
     expect( // animation finished
       tester.getRect(find.byType(Placeholder)),
-      Rect.fromLTRB(40.0, 24.0, 800.0 - 40.0, 600.0 - 24.0),
+      const Rect.fromLTRB(40.0, 24.0, 800.0 - 40.0, 600.0 - 24.0),
     );
   });
 
@@ -463,7 +463,7 @@ void main() {
 
     expect(semantics, isNot(includesNodeWith(
         label: 'Title',
-        flags: <SemanticsFlag>[SemanticsFlag.namesRoute]
+        flags: <SemanticsFlag>[SemanticsFlag.namesRoute],
     )));
 
     await tester.tap(find.text('X'));
@@ -475,5 +475,174 @@ void main() {
     ));
 
     semantics.dispose();
+  });
+
+  testWidgets('Dismissable.confirmDismiss defers to an AlertDialog', (WidgetTester tester) async {
+    final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+    final List<int> dismissedItems = <int>[];
+
+    // Dismiss is confirmed IFF confirmDismiss() returns true.
+    Future<bool> confirmDismiss (DismissDirection dismissDirection) {
+      return showDialog<bool>(
+        context: _scaffoldKey.currentContext,
+        barrierDismissible: true, // showDialog() returns null if tapped outside the dialog
+        builder: (BuildContext context) {
+          return AlertDialog(
+            actions: <Widget>[
+              FlatButton(
+                child: const Text('TRUE'),
+                onPressed: () {
+                  Navigator.pop(context, true); // showDialog() returns true
+                },
+              ),
+              FlatButton(
+                child: const Text('FALSE'),
+                onPressed: () {
+                  Navigator.pop(context, false); // showDialog() returns false
+                },
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    Widget buildDismissibleItem(int item, StateSetter setState) {
+      return Dismissible(
+        key: ValueKey<int>(item),
+        confirmDismiss: confirmDismiss,
+        onDismissed: (DismissDirection direction) {
+          setState(() {
+            expect(dismissedItems.contains(item), isFalse);
+            dismissedItems.add(item);
+          });
+        },
+        child: SizedBox(
+          height: 100.0,
+          child: Text(item.toString()),
+        ),
+      );
+    }
+
+    Widget buildFrame() {
+      return MaterialApp(
+        home: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return Scaffold(
+              key: _scaffoldKey,
+              body: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ListView(
+                  itemExtent: 100.0,
+                  children: <int>[0, 1, 2, 3, 4]
+                    .where((int i) => !dismissedItems.contains(i))
+                    .map<Widget>((int item) => buildDismissibleItem(item, setState)).toList(),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Future<void> dismissItem(WidgetTester tester, int item) async {
+      await tester.fling(find.text(item.toString()), const Offset(300.0, 0.0), 1000.0); // fling to the right
+      await tester.pump(); // start the slide
+      await tester.pump(const Duration(seconds: 1)); // finish the slide and start shrinking...
+      await tester.pump(); // first frame of shrinking animation
+      await tester.pump(const Duration(seconds: 1)); // finish the shrinking and call the callback...
+      await tester.pump(); // rebuild after the callback removes the entry
+    }
+
+    // Dismiss item 0 is confirmed via the AlertDialog
+    await tester.pumpWidget(buildFrame());
+    expect(dismissedItems, isEmpty);
+    await dismissItem(tester, 0); // Causes the AlertDialog to appear per confirmDismiss
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('TRUE')); // AlertDialog action
+    await tester.pumpAndSettle();
+    expect(find.text('TRUE'), findsNothing); // Dialog was dismissed
+    expect(find.text('FALSE'), findsNothing);
+    expect(dismissedItems, <int>[0]);
+    expect(find.text('0'), findsNothing);
+
+    // Dismiss item 1 is not confirmed via the AlertDialog
+    await tester.pumpWidget(buildFrame());
+    expect(dismissedItems, <int>[0]);
+    await dismissItem(tester, 1); // Causes the AlertDialog to appear per confirmDismiss
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('FALSE')); // AlertDialog action
+    await tester.pumpAndSettle();
+    expect(find.text('TRUE'), findsNothing); // Dialog was dismissed
+    expect(find.text('FALSE'), findsNothing);
+    expect(dismissedItems, <int>[0]);
+    expect(find.text('0'), findsNothing);
+    expect(find.text('1'), findsOneWidget);
+
+    // Dismiss item 1 is not confirmed via the AlertDialog
+    await tester.pumpWidget(buildFrame());
+    expect(dismissedItems, <int>[0]);
+    await dismissItem(tester, 1); // Causes the AlertDialog to appear per confirmDismiss
+    await tester.pumpAndSettle();
+    expect(find.text('FALSE'), findsOneWidget);
+    expect(find.text('TRUE'), findsOneWidget);
+    await tester.tapAt(Offset.zero); // Tap outside of the AlertDialog
+    await tester.pumpAndSettle();
+    expect(dismissedItems, <int>[0]);
+    expect(find.text('0'), findsNothing);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('TRUE'), findsNothing); // Dialog was dismissed
+    expect(find.text('FALSE'), findsNothing);
+
+    // Dismiss item 1 is confirmed via the AlertDialog
+    await tester.pumpWidget(buildFrame());
+    expect(dismissedItems, <int>[0]);
+    await dismissItem(tester, 1); // Causes the AlertDialog to appear per confirmDismiss
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('TRUE')); // AlertDialog action
+    await tester.pumpAndSettle();
+    expect(find.text('TRUE'), findsNothing); // Dialog was dismissed
+    expect(find.text('FALSE'), findsNothing);
+    expect(dismissedItems, <int>[0, 1]);
+    expect(find.text('0'), findsNothing);
+    expect(find.text('1'), findsNothing);
+  });
+
+  // Regression test for https://github.com/flutter/flutter/issues/28505.
+  testWidgets('showDialog only gets Theme from context on the first call', (WidgetTester tester) async {
+    Widget buildFrame(Key builderKey) {
+      return MaterialApp(
+        home: Center(
+          child: Builder(
+            key: builderKey,
+            builder: (BuildContext outerContext) {
+              return RaisedButton(
+                onPressed: () {
+                  showDialog<void>(
+                    context: outerContext,
+                    builder: (BuildContext innerContext) {
+                      return const AlertDialog(title: Text('Title'));
+                    },
+                  );
+                },
+                child: const Text('Show Dialog'),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildFrame(UniqueKey()));
+
+    // Open the dialog.
+    await tester.tap(find.byType(RaisedButton));
+    await tester.pumpAndSettle();
+
+    // Force the Builder to be recreated (new key) which causes outerContext to
+    // be deactivated. If showDialog()'s implementation were to refer to
+    // outerContext again, it would crash.
+    await tester.pumpWidget(buildFrame(UniqueKey()));
+    await tester.pump();
   });
 }

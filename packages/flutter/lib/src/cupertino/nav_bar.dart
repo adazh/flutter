@@ -420,12 +420,12 @@ class _CupertinoNavigationBarState extends State<CupertinoNavigationBar> {
 
     if (!widget.transitionBetweenRoutes || !_isTransitionable(context)) {
       // Lint ignore to maintain backward compatibility.
-      return _wrapActiveColor(widget.actionsForegroundColor, context, navBar); // ignore: deprecated_member_use
+      return _wrapActiveColor(widget.actionsForegroundColor, context, navBar); // ignore: deprecated_member_use_from_same_package
     }
 
     return _wrapActiveColor(
       // Lint ignore to maintain backward compatibility.
-      widget.actionsForegroundColor, // ignore: deprecated_member_use
+      widget.actionsForegroundColor, // ignore: deprecated_member_use_from_same_package
       context,
       Builder(
         // Get the context that might have a possibly changed CupertinoTheme.
@@ -631,7 +631,7 @@ class _CupertinoSliverNavigationBarState extends State<CupertinoSliverNavigation
   @override
   Widget build(BuildContext context) {
     // Lint ignore to maintain backward compatibility.
-    final Color actionsForegroundColor = widget.actionsForegroundColor ?? CupertinoTheme.of(context).primaryColor; // ignore: deprecated_member_use
+    final Color actionsForegroundColor = widget.actionsForegroundColor ?? CupertinoTheme.of(context).primaryColor; // ignore: deprecated_member_use_from_same_package
 
     final _NavigationBarStaticComponents components = _NavigationBarStaticComponents(
       keys: keys,
@@ -649,7 +649,7 @@ class _CupertinoSliverNavigationBarState extends State<CupertinoSliverNavigation
 
     return _wrapActiveColor(
       // Lint ignore to maintain backward compatibility.
-      widget.actionsForegroundColor, // ignore: deprecated_member_use
+      widget.actionsForegroundColor, // ignore: deprecated_member_use_from_same_package
       context,
       SliverPersistentHeader(
         pinned: true, // iOS navigation bars are always pinned.
@@ -809,7 +809,7 @@ class _LargeTitleNavigationBarSliverDelegate
 
   @override
   bool shouldRebuild(_LargeTitleNavigationBarSliverDelegate oldDelegate) {
-       return components != oldDelegate.components
+    return components != oldDelegate.components
         || userMiddle != oldDelegate.userMiddle
         || backgroundColor != oldDelegate.backgroundColor
         || border != oldDelegate.border
@@ -910,13 +910,13 @@ class _PersistentNavigationBar extends StatelessWidget {
 @immutable
 class _NavigationBarStaticComponentsKeys {
   _NavigationBarStaticComponentsKeys()
-      : navBarBoxKey = GlobalKey(debugLabel: 'Navigation bar render box'),
-        leadingKey = GlobalKey(debugLabel: 'Leading'),
-        backChevronKey = GlobalKey(debugLabel: 'Back chevron'),
-        backLabelKey = GlobalKey(debugLabel: 'Back label'),
-        middleKey = GlobalKey(debugLabel: 'Middle'),
-        trailingKey = GlobalKey(debugLabel: 'Trailing'),
-        largeTitleKey = GlobalKey(debugLabel: 'Large title');
+    : navBarBoxKey = GlobalKey(debugLabel: 'Navigation bar render box'),
+      leadingKey = GlobalKey(debugLabel: 'Leading'),
+      backChevronKey = GlobalKey(debugLabel: 'Back chevron'),
+      backLabelKey = GlobalKey(debugLabel: 'Back label'),
+      middleKey = GlobalKey(debugLabel: 'Middle'),
+      trailingKey = GlobalKey(debugLabel: 'Trailing'),
+      largeTitleKey = GlobalKey(debugLabel: 'Large title');
 
   final GlobalKey navBarBoxKey;
   final GlobalKey leadingKey;
@@ -1189,6 +1189,10 @@ class _NavigationBarStaticComponents {
 /// [CupertinoSliverNavigationBar]'s `leading` slot when
 /// `automaticallyImplyLeading` is true.
 ///
+/// When manually inserted, the [CupertinoNavigationBarBackButton] should only
+/// be used in routes that can be popped unless a custom [onPressed] is
+/// provided.
+///
 /// Shows a back chevron and the previous route's title when available from
 /// the previous [CupertinoPageRoute.title]. If [previousPageTitle] is specified,
 /// it will be shown instead.
@@ -1200,6 +1204,7 @@ class CupertinoNavigationBarBackButton extends StatelessWidget {
   const CupertinoNavigationBarBackButton({
     this.color,
     this.previousPageTitle,
+    this.onPressed,
   }) : _backChevron = null,
        _backLabel = null;
 
@@ -1209,7 +1214,8 @@ class CupertinoNavigationBarBackButton extends StatelessWidget {
     this._backChevron,
     this._backLabel,
   ) : previousPageTitle = null,
-      color = null;
+      color = null,
+      onPressed = null;
 
   /// The [Color] of the back button.
   ///
@@ -1223,6 +1229,15 @@ class CupertinoNavigationBarBackButton extends StatelessWidget {
   /// previous routes are both [CupertinoPageRoute]s.
   final String previousPageTitle;
 
+  /// An override callback to perform instead of the default behavior which is
+  /// to pop the [Navigator].
+  ///
+  /// It can, for instance, be used to pop the platform's navigation stack
+  /// instead of Flutter's [Navigator].
+  ///
+  /// Defaults to null.
+  final VoidCallback onPressed;
+
   final Widget _backChevron;
 
   final Widget _backLabel;
@@ -1230,10 +1245,12 @@ class CupertinoNavigationBarBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ModalRoute<dynamic> currentRoute = ModalRoute.of(context);
-    assert(
-      currentRoute.canPop,
-      'CupertinoNavigationBarBackButton should only be used in routes that can be popped',
-    );
+    if (onPressed == null) {
+      assert(
+        currentRoute?.canPop == true,
+        'CupertinoNavigationBarBackButton should only be used in routes that can be popped',
+      );
+    }
 
     TextStyle actionTextStyle = CupertinoTheme.of(context).textTheme.navActionTextStyle;
     if (color != null) {
@@ -1269,7 +1286,13 @@ class CupertinoNavigationBarBackButton extends StatelessWidget {
         ),
       ),
       padding: EdgeInsets.zero,
-      onPressed: () { Navigator.maybePop(context); },
+      onPressed: () {
+        if (onPressed != null) {
+          onPressed();
+        } else {
+          Navigator.maybePop(context);
+        }
+      },
     );
   }
 }
@@ -1321,8 +1344,7 @@ class _BackLabel extends StatelessWidget {
     Key key,
     @required this.specifiedPreviousTitle,
     @required this.route,
-  }) : assert(route != null),
-       super(key: key);
+  }) : super(key: key);
 
   final String specifiedPreviousTitle;
   final ModalRoute<dynamic> route;
@@ -1355,7 +1377,7 @@ class _BackLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     if (specifiedPreviousTitle != null) {
       return _buildPreviousTitleWidget(context, specifiedPreviousTitle, null);
-    } else if (route is CupertinoPageRoute<dynamic>) {
+    } else if (route is CupertinoPageRoute<dynamic> && !route.isFirst) {
       final CupertinoPageRoute<dynamic> cupertinoRoute = route;
       // There is no timing issue because the previousTitle Listenable changes
       // happen during route modifications before the ValueListenableBuilder
@@ -1676,7 +1698,7 @@ class _NavigationBarComponentsTransition {
           ancestor: toNavBarBox,
         ).translate(
           0.0,
-          - fromBox.size.height / 2 + toBox.size.height / 2
+          - fromBox.size.height / 2 + toBox.size.height / 2,
         ) & fromBox.size; // Keep the from render object's size.
 
     if (forwardDirection < 0) {
@@ -2001,8 +2023,7 @@ class _NavigationBarComponentsTransition {
     // text.
     if (bottomLargeTitle != null &&
         topBackLabel != null &&
-        bottomLargeExpanded
-    ) {
+        bottomLargeExpanded) {
       return PositionedTransition(
         rect: animation.drive(slideFromLeadingEdge(
           fromKey: bottomComponents.largeTitleKey,
@@ -2153,8 +2174,9 @@ CreateRectTween _linearTranslateWithLargestRectSizeTween = (Rect begin, Rect end
   );
 };
 
-final TransitionBuilder _navBarHeroLaunchPadBuilder = (
+final HeroPlaceholderBuilder _navBarHeroLaunchPadBuilder = (
   BuildContext context,
+  Size heroSize,
   Widget child,
 ) {
   assert(child is _TransitionableNavigationBar);
@@ -2229,4 +2251,5 @@ final HeroFlightShuttleBuilder _navBarHeroFlightShuttleBuilder = (
         topNavBar: fromNavBar,
       );
   }
+  return null;
 };

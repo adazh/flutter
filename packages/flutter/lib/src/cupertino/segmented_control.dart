@@ -11,9 +11,9 @@ import 'package:flutter/widgets.dart';
 
 import 'theme.dart';
 
-// Minimum padding from horizontal edges of segmented control to edges of
+// Minimum padding from edges of the segmented control to edges of
 // encompassing widget.
-const EdgeInsets _kHorizontalItemPadding = EdgeInsets.symmetric(horizontal: 16.0);
+const EdgeInsetsGeometry _kHorizontalItemPadding = EdgeInsets.symmetric(horizontal: 16.0);
 
 // Minimum height of the segmented control.
 const double _kMinSegmentedControlHeight = 28.0;
@@ -87,14 +87,15 @@ class CupertinoSegmentedControl<T> extends StatefulWidget {
     this.selectedColor,
     this.borderColor,
     this.pressedColor,
-  })  : assert(children != null),
-        assert(children.length >= 2),
-        assert(onValueChanged != null),
-        assert(
-          groupValue == null || children.keys.any((T child) => child == groupValue),
-          'The groupValue must be either null or one of the keys in the children map.',
-        ),
-        super(key: key);
+    this.padding,
+  }) : assert(children != null),
+       assert(children.length >= 2),
+       assert(onValueChanged != null),
+       assert(
+         groupValue == null || children.keys.any((T child) => child == groupValue),
+         'The groupValue must be either null or one of the keys in the children map.',
+       ),
+       super(key: key);
 
   /// The identifying keys and corresponding widget values in the
   /// segmented control.
@@ -179,6 +180,11 @@ class CupertinoSegmentedControl<T> extends StatefulWidget {
   /// Defaults to the selectedColor at 20% opacity if null.
   final Color pressedColor;
 
+  /// The CupertinoSegmentedControl will be placed inside this padding
+  ///
+  /// Defaults to EdgeInsets.symmetric(horizontal: 16.0)
+  final EdgeInsetsGeometry padding;
+
   @override
   _SegmentedControlState<T> createState() => _SegmentedControlState<T>();
 }
@@ -204,10 +210,10 @@ class _SegmentedControlState<T> extends State<CupertinoSegmentedControl<T>>
       duration: _kFadeDuration,
       vsync: this,
     )..addListener(() {
-        setState(() {
-          // State of background/text colors has changed
-        });
+      setState(() {
+        // State of background/text colors has changed
       });
+    });
   }
 
   bool _updateColors() {
@@ -407,7 +413,7 @@ class _SegmentedControlState<T> extends State<CupertinoSegmentedControl<T>>
     );
 
     return Padding(
-      padding: _kHorizontalItemPadding.resolve(Directionality.of(context)),
+      padding: widget.padding ?? _kHorizontalItemPadding,
       child: UnconstrainedBox(
         constrainedAxis: Axis.horizontal,
         child: box,
@@ -472,12 +478,12 @@ class _RenderSegmentedControl<T> extends RenderBox
     @required TextDirection textDirection,
     @required List<Color> backgroundColors,
     @required Color borderColor,
-  })  : assert(textDirection != null),
-        _textDirection = textDirection,
-        _selectedIndex = selectedIndex,
-        _pressedIndex = pressedIndex,
-        _backgroundColors = backgroundColors,
-        _borderColor = borderColor {
+  }) : assert(textDirection != null),
+       _textDirection = textDirection,
+       _selectedIndex = selectedIndex,
+       _pressedIndex = pressedIndex,
+       _backgroundColors = backgroundColors,
+       _borderColor = borderColor {
     addAll(children);
   }
 
@@ -703,13 +709,21 @@ class _RenderSegmentedControl<T> extends RenderBox
   }
 
   @override
-  bool hitTestChildren(HitTestResult result, {@required Offset position}) {
+  bool hitTestChildren(BoxHitTestResult result, { @required Offset position }) {
     assert(position != null);
     RenderBox child = lastChild;
     while (child != null) {
       final _SegmentedControlContainerBoxParentData childParentData = child.parentData;
       if (childParentData.surroundingRect.contains(position)) {
-        return child.hitTest(result, position: (Offset.zero & child.size).center);
+        final Offset center = (Offset.zero & child.size).center;
+        return result.addWithRawTransform(
+          transform: MatrixUtils.forceToPoint(center),
+          position: center,
+          hitTest: (BoxHitTestResult result, Offset position) {
+            assert(position == center);
+            return child.hitTest(result, position: center);
+          },
+        );
       }
       child = childParentData.previousSibling;
     }
