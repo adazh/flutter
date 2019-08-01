@@ -289,6 +289,9 @@ Future<void> _flutterBuildDart2js(String relativePathToApplication) async {
     workingDirectory: path.join(flutterRoot, relativePathToApplication),
     expectNonZeroExit: false,
     timeout: _kShortTimeout,
+    environment: <String, String>{
+      'FLUTTER_WEB': 'true',
+    }
   );
   print('Done.');
 }
@@ -370,7 +373,7 @@ Future<void> _runTests() async {
       path.join(flutterRoot, 'packages', 'flutter'),
       tableData: bigqueryApi?.tabledata,
       tests: <String>[
-        'test/widgets/',
+        path.join('test', 'widgets') + path.separator,
       ],
     );
     // Only packages/flutter/test/widgets/widget_inspector_test.dart really
@@ -382,7 +385,7 @@ Future<void> _runTests() async {
       options: <String>['--track-widget-creation'],
       tableData: bigqueryApi?.tabledata,
       tests: <String>[
-        'test/widgets/',
+        path.join('test', 'widgets') + path.separator,
       ],
     );
   }
@@ -962,5 +965,6 @@ Future<void> _androidGradleTests(String subShard) async {
   if (subShard == 'gradle2') {
     await _runDevicelabTest('gradle_plugin_bundle_test', env: env);
     await _runDevicelabTest('module_test', env: env);
+    await _runDevicelabTest('module_host_with_custom_build_test', env: env);
   }
 }
