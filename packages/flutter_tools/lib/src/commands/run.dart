@@ -15,17 +15,15 @@ import '../cache.dart';
 import '../device.dart';
 import '../features.dart';
 import '../globals.dart';
-import '../macos/xcode.dart';
 import '../project.dart';
 import '../reporting/reporting.dart';
 import '../resident_runner.dart';
-import '../resident_web_runner.dart';
 import '../run_cold.dart';
 import '../run_hot.dart';
 import '../runner/flutter_command.dart';
 import '../tracing.dart';
 import '../version.dart';
-
+import '../web/web_runner.dart';
 import 'daemon.dart';
 
 abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopmentArtifacts {
@@ -238,19 +236,6 @@ class RunCommand extends RunCommandBase {
   }
 
   @override
-  void printNoConnectedDevices() {
-    super.printNoConnectedDevices();
-    if (getCurrentHostPlatform() == HostPlatform.darwin_x64 &&
-        xcode.isInstalledAndMeetsVersionCheck) {
-      printStatus('');
-      printStatus("Run 'flutter emulators' to list and start any available device emulators.");
-      printStatus('');
-      printStatus('If you expected your device to be detected, please run "flutter doctor" to diagnose');
-      printStatus('potential issues, or visit https://flutter.dev/setup/ for troubleshooting tips.');
-    }
-  }
-
-  @override
   bool get shouldRunPub {
     // If we are running with a prebuilt application, do not run pub.
     if (runningWithPrebuiltApplication)
@@ -430,8 +415,8 @@ class RunCommand extends RunCommandBase {
         ipv6: ipv6,
       );
     } else if (webMode) {
-      runner = ResidentWebRunner(
-        flutterDevices,
+      runner = webRunnerFactory.createWebRunner(
+        devices.single,
         target: targetFile,
         flutterProject: flutterProject,
         ipv6: ipv6,
@@ -473,7 +458,6 @@ class RunCommand extends RunCommandBase {
     final int result = await runner.run(
       appStartedCompleter: appStartedTimeRecorder,
       route: route,
-      shouldBuild: !runningWithPrebuiltApplication && argResults['build'],
     );
     if (result != 0) {
       throwToolExit(null, exitCode: result);

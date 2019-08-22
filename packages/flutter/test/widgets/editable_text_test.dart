@@ -619,6 +619,79 @@ void main() {
     expect(find.text('PASTE'), findsOneWidget);
   });
 
+  testWidgets('can dynamically disable options in toolbar', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EditableText(
+          backgroundCursorColor: Colors.grey,
+          controller: TextEditingController(text: 'blah blah'),
+          focusNode: focusNode,
+          toolbarOptions: const ToolbarOptions(
+            copy: true,
+            selectAll: true,
+          ),
+          style: textStyle,
+          cursorColor: cursorColor,
+          selectionControls: materialTextSelectionControls,
+        ),
+      ),
+    );
+
+    final EditableTextState state =
+    tester.state<EditableTextState>(find.byType(EditableText));
+
+    // Select something. Doesn't really matter what.
+    state.renderEditable.selectWordsInRange(
+      from: const Offset(0, 0),
+      cause: SelectionChangedCause.tap,
+    );
+    await tester.pump();
+    expect(state.showToolbar(), true);
+    await tester.pump();
+    expect(find.text('SELECT ALL'), findsOneWidget);
+    expect(find.text('COPY'), findsOneWidget);
+    expect(find.text('PASTE'), findsNothing);
+    expect(find.text('CUT'), findsNothing);
+  });
+
+  testWidgets('cut and paste are disabled in read only mode even if explicit set', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EditableText(
+          backgroundCursorColor: Colors.grey,
+          controller: TextEditingController(text: 'blah blah'),
+          focusNode: focusNode,
+          readOnly: true,
+          toolbarOptions: const ToolbarOptions(
+            paste: true,
+            cut: true,
+            selectAll: true,
+            copy: true,
+          ),
+          style: textStyle,
+          cursorColor: cursorColor,
+          selectionControls: materialTextSelectionControls,
+        ),
+      ),
+    );
+
+    final EditableTextState state =
+    tester.state<EditableTextState>(find.byType(EditableText));
+
+    // Select something. Doesn't really matter what.
+    state.renderEditable.selectWordsInRange(
+      from: const Offset(0, 0),
+      cause: SelectionChangedCause.tap,
+    );
+    await tester.pump();
+    expect(state.showToolbar(), true);
+    await tester.pump();
+    expect(find.text('SELECT ALL'), findsOneWidget);
+    expect(find.text('COPY'), findsOneWidget);
+    expect(find.text('PASTE'), findsNothing);
+    expect(find.text('CUT'), findsNothing);
+  });
+
   testWidgets('Fires onChanged when text changes via TextSelectionOverlay', (WidgetTester tester) async {
     String changedValue;
     final Widget widget = MaterialApp(
@@ -1714,8 +1787,14 @@ void main() {
                         SemanticsFlag.isObscured,
                         SemanticsFlag.isFocused,
                       ],
+                      actions: <SemanticsAction>[
+                        SemanticsAction.moveCursorBackwardByCharacter,
+                        SemanticsAction.setSelection,
+                        SemanticsAction.moveCursorBackwardByWord
+                      ],
                       value: expectedValue,
                       textDirection: TextDirection.ltr,
+                      textSelection: const TextSelection.collapsed(offset: 24),
                     ),
                   ],
                 ),
@@ -2189,8 +2268,8 @@ void main() {
             expect(
               pos,
               inExclusiveRange(
-                0 - kMinInteractiveSize,
-                0 + kMinInteractiveSize,
+                0 - kMinInteractiveDimension,
+                0 + kMinInteractiveDimension,
               ),
             );
             break;
@@ -2198,8 +2277,8 @@ void main() {
             expect(
               pos,
               inExclusiveRange(
-                viewport.width - kMinInteractiveSize,
-                viewport.width + kMinInteractiveSize,
+                viewport.width - kMinInteractiveDimension,
+                viewport.width + kMinInteractiveDimension,
               ),
             );
             break;
@@ -2207,8 +2286,8 @@ void main() {
             expect(
               pos,
               inExclusiveRange(
-                0 - kMinInteractiveSize,
-                viewport.width + kMinInteractiveSize,
+                0 - kMinInteractiveDimension,
+                viewport.width + kMinInteractiveDimension,
               ),
             );
             break;
@@ -2302,15 +2381,15 @@ void main() {
     expect(
       handles[0].localToGlobal(Offset.zero).dx,
       inExclusiveRange(
-        -kMinInteractiveSize,
-        kMinInteractiveSize,
+        -kMinInteractiveDimension,
+        kMinInteractiveDimension,
       ),
     );
     expect(
       handles[1].localToGlobal(Offset.zero).dx,
       inExclusiveRange(
-        70.0 - kMinInteractiveSize,
-        70.0 + kMinInteractiveSize,
+        70.0 - kMinInteractiveDimension,
+        70.0 + kMinInteractiveDimension,
       ),
     );
     expect(state.selectionOverlay.handlesAreVisible, isTrue);
@@ -2418,8 +2497,8 @@ void main() {
             expect(
               pos,
               inExclusiveRange(
-                0 - kMinInteractiveSize,
-                0 + kMinInteractiveSize,
+                0 - kMinInteractiveDimension,
+                0 + kMinInteractiveDimension,
               ),
             );
             break;
@@ -2427,8 +2506,8 @@ void main() {
             expect(
               pos,
               inExclusiveRange(
-                viewport.width - kMinInteractiveSize,
-                viewport.width + kMinInteractiveSize,
+                viewport.width - kMinInteractiveDimension,
+                viewport.width + kMinInteractiveDimension,
               ),
             );
             break;
@@ -2436,8 +2515,8 @@ void main() {
             expect(
               pos,
               inExclusiveRange(
-                0 - kMinInteractiveSize,
-                viewport.width + kMinInteractiveSize,
+                0 - kMinInteractiveDimension,
+                viewport.width + kMinInteractiveDimension,
               ),
             );
             break;
@@ -2488,6 +2567,56 @@ void main() {
     await verifyVisibility(HandlePositionInViewport.rightEdge, false, HandlePositionInViewport.rightEdge, false);
 
     debugDefaultTargetPlatformOverride = null;
+  }, skip: isBrowser);
+
+  testWidgets('scrolling doesn\'t bounce', (WidgetTester tester) async {
+    // 3 lines of text, where the last line overflows and requires scrolling.
+    const String testText = 'XXXXX\nXXXXX\nXXXXX';
+    final TextEditingController controller = TextEditingController(text: testText);
+
+    await tester.pumpWidget(MaterialApp(
+      home: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 100,
+          child: EditableText(
+            showSelectionHandles: true,
+            maxLines: 2,
+            controller: controller,
+            focusNode: FocusNode(),
+            style: Typography(platform: TargetPlatform.android).black.subhead.copyWith(fontFamily: 'Roboto'),
+            cursorColor: Colors.blue,
+            backgroundCursorColor: Colors.grey,
+            selectionControls: materialTextSelectionControls,
+            keyboardType: TextInputType.text,
+          ),
+        ),
+      ),
+    ));
+
+    final EditableTextState state =
+      tester.state<EditableTextState>(find.byType(EditableText));
+    final RenderEditable renderEditable = state.renderEditable;
+    final Scrollable scrollable = tester.widget<Scrollable>(find.byType(Scrollable));
+
+    expect(scrollable.controller.position.viewportDimension, equals(28));
+    expect(scrollable.controller.position.pixels, equals(0));
+
+    expect(renderEditable.maxScrollExtent, equals(14));
+
+    scrollable.controller.jumpTo(20.0);
+    await tester.pump();
+    expect(scrollable.controller.position.pixels, equals(20));
+
+    state.bringIntoView(const TextPosition(offset: 0));
+    await tester.pump();
+    expect(scrollable.controller.position.pixels, equals(0));
+
+
+    state.bringIntoView(const TextPosition(offset: 13));
+    await tester.pump();
+    expect(scrollable.controller.position.pixels, equals(14));
+    expect(scrollable.controller.position.pixels, equals(renderEditable.maxScrollExtent));
   }, skip: isBrowser);
 }
 

@@ -121,23 +121,16 @@ class PopupMenuThemeData extends Diagnosticable {
 ///
 /// Values specified here are used for popup menu properties that are not
 /// given an explicit non-null value.
-class PopupMenuTheme extends InheritedWidget {
+class PopupMenuTheme extends InheritedTheme {
   /// Creates a popup menu theme that controls the configurations for
   /// popup menus in its widget subtree.
-  PopupMenuTheme({
+  ///
+  /// The data argument must not be null.
+  const PopupMenuTheme({
     Key key,
-    Color color,
-    ShapeBorder shape,
-    double elevation,
-    TextStyle textStyle,
+    @required this.data,
     Widget child,
-  }) : data = PopupMenuThemeData(
-         color: color,
-         shape: shape,
-         elevation: elevation,
-         textStyle: textStyle,
-       ),
-       super(key: key, child: child);
+  }) : assert(data != null), super(key: key, child: child);
 
   /// The properties for descendant popup menu widgets.
   final PopupMenuThemeData data;
@@ -154,6 +147,12 @@ class PopupMenuTheme extends InheritedWidget {
   static PopupMenuThemeData of(BuildContext context) {
     final PopupMenuTheme popupMenuTheme = context.inheritFromWidgetOfExactType(PopupMenuTheme);
     return popupMenuTheme?.data ?? Theme.of(context).popupMenuTheme;
+  }
+
+  @override
+  Widget wrap(BuildContext context, Widget child) {
+    final PopupMenuTheme ancestorTheme = context.ancestorWidgetOfExactType(PopupMenuTheme);
+    return identical(this, ancestorTheme) ? child : PopupMenuTheme(data: data, child: child);
   }
 
   @override

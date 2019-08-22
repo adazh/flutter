@@ -14,7 +14,6 @@ import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'app_bar.dart';
 import 'bottom_sheet.dart';
 import 'button_bar.dart';
-import 'button_theme.dart';
 import 'colors.dart';
 import 'divider.dart';
 import 'drawer.dart';
@@ -968,6 +967,7 @@ class Scaffold extends StatefulWidget {
     this.drawerDragStartBehavior = DragStartBehavior.start,
     this.extendBody = false,
     this.drawerScrimColor,
+    this.drawerEdgeDragWidth,
   }) : assert(primary != null),
        assert(extendBody != null),
        assert(drawerDragStartBehavior != null),
@@ -1139,6 +1139,16 @@ class Scaffold extends StatefulWidget {
 
   /// {@macro flutter.material.drawer.dragStartBehavior}
   final DragStartBehavior drawerDragStartBehavior;
+
+  /// The width of the area within which a horizontal swipe will open the
+  /// drawer.
+  ///
+  /// By default, the value used is 20.0 added to the padding edge of
+  /// `MediaQuery.of(context).padding` that corresponds to [alignment].
+  /// This ensures that the drag area for notched devices is not obscured. For
+  /// example, if `TextDirection.of(context)` is set to [TextDirection.ltr],
+  /// 20.0 will be added to `MediaQuery.of(context).padding.left`.
+  final double drawerEdgeDragWidth;
 
   /// The state from the closest instance of this class that encloses the given context.
   ///
@@ -1612,6 +1622,7 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
     Color backgroundColor,
     double elevation,
     ShapeBorder shape,
+    Clip clipBehavior,
   }) {
     assert(() {
       if (widget.bottomSheet != null && isPersistent && _currentBottomSheet != null) {
@@ -1692,6 +1703,7 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
       backgroundColor: backgroundColor,
       elevation: elevation,
       shape: shape,
+      clipBehavior: clipBehavior,
     );
 
     if (!isPersistent)
@@ -1737,7 +1749,8 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
   ///
   /// See also:
   ///
-  ///  * [BottomSheet], which is the widget typically returned by the `builder`.
+  ///  * [BottomSheet], which becomes the parent of the widget returned by the
+  ///    `builder`.
   ///  * [showBottomSheet], which calls this method given a [BuildContext].
   ///  * [showModalBottomSheet], which can be used to display a modal bottom
   ///    sheet.
@@ -1748,6 +1761,7 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
     Color backgroundColor,
     double elevation,
     ShapeBorder shape,
+    Clip clipBehavior,
   }) {
     assert(() {
       if (widget.bottomSheet != null) {
@@ -1771,6 +1785,7 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
         backgroundColor: backgroundColor,
         elevation: elevation,
         shape: shape,
+        clipBehavior: clipBehavior,
       );
     });
     return _currentBottomSheet;
@@ -1983,6 +1998,7 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
           drawerCallback: _endDrawerOpenedCallback,
           dragStartBehavior: widget.drawerDragStartBehavior,
           scrimColor: widget.drawerScrimColor,
+          edgeDragWidth: widget.drawerEdgeDragWidth,
         ),
         _ScaffoldSlot.endDrawer,
         // remove the side padding from the side we're not touching
@@ -2006,6 +2022,7 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
           drawerCallback: _drawerOpenedCallback,
           dragStartBehavior: widget.drawerDragStartBehavior,
           scrimColor: widget.drawerScrimColor,
+          edgeDragWidth: widget.drawerEdgeDragWidth,
         ),
         _ScaffoldSlot.drawer,
         // remove the side padding from the side we're not touching
@@ -2140,13 +2157,9 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
             ),
           ),
           child: SafeArea(
-            child: ButtonTheme.bar(
-              child: SafeArea(
-                top: false,
-                child: ButtonBar(
-                  children: widget.persistentFooterButtons,
-                ),
-              ),
+            top: false,
+            child: ButtonBar(
+              children: widget.persistentFooterButtons,
             ),
           ),
         ),
@@ -2304,6 +2317,7 @@ class _StandardBottomSheet extends StatefulWidget {
     this.backgroundColor,
     this.elevation,
     this.shape,
+    this.clipBehavior,
   }) : super(key: key);
 
   final AnimationController animationController; // we control it, but it must be disposed by whoever created it.
@@ -2315,6 +2329,7 @@ class _StandardBottomSheet extends StatefulWidget {
   final Color backgroundColor;
   final double elevation;
   final ShapeBorder shape;
+  final Clip clipBehavior;
 
   @override
   _StandardBottomSheetState createState() => _StandardBottomSheetState();
@@ -2403,6 +2418,7 @@ class _StandardBottomSheetState extends State<_StandardBottomSheet> {
             backgroundColor: widget.backgroundColor,
             elevation: widget.elevation,
             shape: widget.shape,
+            clipBehavior: widget.clipBehavior,
           ),
         ),
       );
